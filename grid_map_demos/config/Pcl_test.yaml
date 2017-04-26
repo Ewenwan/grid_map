@@ -1,0 +1,20 @@
+grid_map_topic: /Pcl_demo/grid_map
+grid_map_visualizations:
+  - name: Test_layer_points
+    type: point_cloud
+    params:
+     layer: Test_layer
+
+  - name: Test_layer_grid
+    type: occupancy_grid
+    params:
+     layer: Test_layer
+     data_min: 0.08
+     data_max: 1.0
+
+  - name: elevation_cells
+    type: grid_cells
+    params:
+     layer: Test_layer
+     lower_threshold: -0.08
+     upper_threshold: 0.0
