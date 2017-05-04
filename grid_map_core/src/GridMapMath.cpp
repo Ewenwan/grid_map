@@ -329,7 +329,7 @@ void mapIndexWithinRange(Index& index, const Size& bufferSize)
  * @function    [mapIndexWithinRange]
  * @description [如果索引值不在索引区内，再将其变换到索引区内：
  *               1.如果索引值为负值，则取( buffize - |index|)
- *               2.如果索引值大于buffize则，直接取buffize的余数
+ *               2.如果索引值大于buffize,则直接取buffize的余数
  *              ]
  * @param       index      [description]
  * @param       bufferSize [description]
@@ -641,7 +641,7 @@ Index getIndexFromBufferIndex(const Index& bufferIndex, const Size& bufferSize,
     if (checkIfStartIndexAtDefaultPosition(bufferStartIndex))
     return bufferIndex;
     
-    // 当前索引值到最初索引值的cell单元数？
+    // 当前索引值到最初索引值的cell单元数,注意是index的减法
     Index index = bufferIndex - bufferStartIndex;
     // 对索引值的一些异常做处理
     mapIndexWithinRange(index, bufferSize);
@@ -706,8 +706,8 @@ bool colorVectorToValue(const Eigen::Vector3i& colorVector, unsigned long& color
 
 void colorVectorToValue(const Eigen::Vector3i& colorVector, float& colorValue)
 {
-  int color = (colorVector(0) << 16) + (colorVector(1) << 8) + colorVector(2);
-  colorValue = *reinterpret_cast<float*>(&color);
+    int color = (colorVector(0) << 16) + (colorVector(1) << 8) + colorVector(2);
+    colorValue = *reinterpret_cast<float*>(&color);
 }
 
 }  // namespace

@@ -366,15 +366,23 @@ bool GridMap::isValid(const Index& index, const std::vector<std::string>& layers
   return true;
 }
 
+/**
+ * @description     [获取该layer层，index索引处的位置坐标和cell value]
+ * @param layer     [地图层]
+ * @param index     [索引]
+ * @param position  [以三维坐标形式返回]
+ * @return          [索引有效返回为真，否则返回为假]
+ */
 bool GridMap::getPosition3(const std::string& layer, const Index& index,
                            Position3& position) const
 {
-  if (!isValid(index, layer)) return false;
-  Position position2d;
-  getPosition(index, position2d);
-  position.head(2) = position2d;
-  position.z() = at(layer, index);
-  return true;
+    if (!isValid(index, layer))
+      return false;
+    Position position2d;
+    getPosition(index, position2d);
+    position.head(2) = position2d;
+    position.z() = at(layer, index);
+    return true;
 }
 
 bool GridMap::getVector(const std::string& layerPrefix, const Index& index,

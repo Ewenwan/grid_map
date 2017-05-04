@@ -70,62 +70,85 @@ class GridMapCvConverter
                                 grid_map::GridMap& gridMap, const float lowerValue = 0.0,
                                 const float upperValue = 1.0, const double alphaThreshold = 0.5)
   {
-    if (gridMap.getSize()(0) != image.rows || gridMap.getSize()(1) != image.cols) {
-      std::cerr << "Image size does not correspond to grid map size!" << std::endl;
-      return false;
-    }
-
-    bool isColor = false;
-    if (image.channels() >= 3) isColor = true;
-    bool hasAlpha = false;
-    if (image.channels() >= 4) hasAlpha = true;
-
-    cv::Mat imageMono;
-    if (isColor && !hasAlpha) {
-      cv::cvtColor(image, imageMono, CV_BGR2GRAY);
-    } else if (isColor && hasAlpha) {
-      cv::cvtColor(image, imageMono, CV_BGRA2GRAY);
-    } else if (!isColor && !hasAlpha){
-      imageMono = image;
-    } else {
-      std::cerr << "Something went wrong when adding grid map layer form image!" << std::endl;
-      return false;
-    }
-
-    const float mapValueDifference = upperValue - lowerValue;
-
-    float maxImageValue;
-    if (std::is_same<Type_, float>::value || std::is_same<Type_, double>::value) {
-      maxImageValue = 1.0;
-    } else if (std::is_same<Type_, unsigned short>::value || std::is_same<Type_, unsigned char>::value) {
-      maxImageValue = (float)std::numeric_limits<Type_>::max();
-    } else {
-      std::cerr << "This image type is not supported." << std::endl;
-      return false;
-    }
-
-    const Type_ alphaTreshold = (Type_)(alphaThreshold * maxImageValue);
-
-    gridMap.add(layer);
-    grid_map::Matrix& data = gridMap[layer];
-
-    for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator) {
-      const Index index(*iterator);
-
-      // Check for alpha layer.
-      if (hasAlpha) {
-        const Type_ alpha = image.at<cv::Vec<Type_, NChannels_>>(index(0), index(1))[NChannels_ - 1];
-        if (alpha < alphaTreshold) continue;
+      if (gridMap.getSize()(0) != image.rows || gridMap.getSize()(1) != image.cols)
+      {
+          std::cerr << "Image size does not correspond to grid map size!" << std::endl;
+          return false;
       }
 
-      // Compute value.
-      const Type_ imageValue = imageMono.at<Type_>(index(0), index(1));
-      const float mapValue = lowerValue + mapValueDifference * ((float) imageValue / maxImageValue);
-      data(index(0), index(1)) = mapValue;
-    }
+      bool isColor = false;
+      if (image.channels() >= 3) isColor = true;
+      bool hasAlpha = false;
+      if (image.channels() >= 4) hasAlpha = true;
 
-    return true;
+      // 1. 将image全部转为灰度图
+      cv::Mat imageMono;
+      // 仅有色彩信息
+      if (isColor && !hasAlpha)
+      {
+          cv::cvtColor(image, imageMono, CV_BGR2GRAY);
+      }
+      // 包含色彩信息和透明度信息
+      else if (isColor && hasAlpha)
+      {
+          cv::cvtColor(image, imageMono, CV_BGRA2GRAY);
+      }
+      // 灰度图
+      else if (!isColor && !hasAlpha)
+      {
+          imageMono = image;
+      }
+      else
+      {
+          std::cerr << "Something went wrong when adding grid map layer form image!" << std::endl;
+          return false;
+      }
+
+      const float mapValueDifference = upperValue - lowerValue;
+
+      float maxImageValue;
+      // 判断type的类型
+      if (std::is_same<Type_, float>::value || std::is_same<Type_, double>::value)
+      {
+          maxImageValue = 1.0;
+      }
+      else if (std::is_same<Type_, unsigned short>::value || std::is_same<Type_, unsigned char>::value)
+      {
+          // 返回type类型的最大值
+          maxImageValue = (float)std::numeric_limits<Type_>::max();
+      }
+      else
+      {
+          std::cerr << "This image type is not supported." << std::endl;
+          return false;
+      }
+      // 获取转换的透明度阈值
+      const Type_ alphaTreshold = (Type_)(alphaThreshold * maxImageValue);
+
+      gridMap.add(layer);
+      grid_map::Matrix& data = gridMap[layer];
+
+      for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator)
+      {
+          const Index index(*iterator);
+
+          // Check for alpha layer.
+          // 如果是四通道的图像，则像素点的透明度要超过阈值
+          if (hasAlpha)
+          {
+              const Type_ alpha = image.at<cv::Vec<Type_, NChannels_>>(index(0), index(1))[NChannels_ - 1];
+              if (alpha < alphaTreshold) continue;
+          }
+          // Compute value.
+          const Type_ imageValue = imageMono.at<Type_>(index(0), index(1));
+          // 归一化再加上最小值
+          const float mapValue = lowerValue + mapValueDifference * ((float) imageValue / maxImageValue);
+          data(index(0), index(1)) = mapValue;
+      }
+
+      return true;
   };
+
 
   /*!
    * Adds a color layer with data from an image.
@@ -138,33 +161,41 @@ class GridMapCvConverter
   static bool addColorLayerFromImage(const cv::Mat& image, const std::string& layer,
                                      grid_map::GridMap& gridMap)
   {
-    if (gridMap.getSize()(0) != image.rows || gridMap.getSize()(1) != image.cols) {
-      std::cerr << "Image size does not correspond to grid map size!" << std::endl;
-      return false;
-    }
+      if (gridMap.getSize()(0) != image.rows || gridMap.getSize()(1) != image.cols)
+      {
+          std::cerr << "Image size does not correspond to grid map size!" << std::endl;
+          return false;
+      }
 
-    bool hasAlpha = false;
-    if (image.channels() >= 4) hasAlpha = true;
+      bool hasAlpha = false;
+      if (image.channels() >= 4) hasAlpha = true;
 
-    cv::Mat imageRGB;
-    if (hasAlpha) {
-      cv::cvtColor(image, imageRGB, CV_BGRA2RGB);
-    } else {
-      imageRGB = image;
-    }
+      // 如果是四通道图像则转为RGB图像
+      cv::Mat imageRGB;
+      if (hasAlpha)
+      {
+          cv::cvtColor(image, imageRGB, CV_BGRA2RGB);
+      }
+       else
+      {
+          imageRGB = image;
+      }
 
-    gridMap.add(layer);
+      gridMap.add(layer);
 
-    for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator) {
-      const auto& cvColor = imageRGB.at<cv::Vec<Type_, 3>>((*iterator)(0), (*iterator)(1));
-      Eigen::Vector3i colorVector;
-      colorVector(0) = cvColor[0];
-      colorVector(1) = cvColor[1];
-      colorVector(2) = cvColor[2];
-      colorVectorToValue(colorVector, gridMap.at(layer, *iterator));
-    }
+      for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator)
+      {
+          const auto& cvColor = imageRGB.at<cv::Vec<Type_, 3>>((*iterator)(0), (*iterator)(1));
+          Eigen::Vector3i colorVector;
+          Eigen::Vector3i colorVector;
+          colorVector(0) = cvColor[0];
+          colorVector(1) = cvColor[1];
+          colorVector(2) = cvColor[2];
+          // 注意指针的用法
+          colorVectorToValue(colorVector, gridMap.at(layer, *iterator));
+      }
 
-    return true;
+      return true;
   }
 
   /*!
@@ -183,6 +214,7 @@ class GridMapCvConverter
   static bool toImage(const grid_map::GridMap& gridMap, const std::string& layer,
                       const int encoding, cv::Mat& image)
   {
+    // 计算该层layer的cell单元value的最大值和最小值
     const float minValue = gridMap.get(layer).minCoeffOfFinites();
     const float maxValue = gridMap.get(layer).maxCoeffOfFinites();
     return toImage<Type_, NChannels_>(gridMap, layer, encoding, minValue, maxValue, image);
@@ -203,53 +235,72 @@ class GridMapCvConverter
                       const int encoding, const float lowerValue, const float upperValue,
                       cv::Mat& image)
   {
+    // 1. 确定要转换的图像大小
     // Initialize image.
-    if (gridMap.getSize()(0) > 0 && gridMap.getSize()(1) > 0) {
-      image = cv::Mat::zeros(gridMap.getSize()(0), gridMap.getSize()(1), encoding);
-    } else {
-      std::cerr << "Invalid grid map?" << std::endl;
-      return false;
+    if (gridMap.getSize()(0) > 0 && gridMap.getSize()(1) > 0)
+    {
+        image = cv::Mat::zeros(gridMap.getSize()(0), gridMap.getSize()(1), encoding);
+    }
+    else
+    {
+        std::cerr << "Invalid grid map?" << std::endl;
+        return false;
     }
 
+    // 2. 获取图像像素的最大值
     // Get max image value.
     Type_ imageMax;
-    if (std::is_same<Type_, float>::value || std::is_same<Type_, double>::value) {
-      imageMax = 1.0;
-    } else if (std::is_same<Type_, unsigned short>::value || std::is_same<Type_, unsigned char>::value) {
-      imageMax = (Type_)std::numeric_limits<Type_>::max();
-    } else {
-      std::cerr << "This image type is not supported." << std::endl;
-      return false;
+    if (std::is_same<Type_, float>::value || std::is_same<Type_, double>::value)
+    {
+        imageMax = 1.0;
+    }
+    else if (std::is_same<Type_, unsigned short>::value || std::is_same<Type_, unsigned char>::value)
+    {
+        imageMax = (Type_)std::numeric_limits<Type_>::max();
+    }
+    else
+    {
+        std::cerr << "This image type is not supported." << std::endl;
+        return false;
     }
 
     // Clamp outliers.
+    // 3. 获取gridmap cell单元的最大value和最小value
     grid_map::GridMap map = gridMap;
     map.get(layer) = map.get(layer).unaryExpr(grid_map::Clamp<float>(lowerValue, upperValue));
     const grid_map::Matrix& data = gridMap[layer];
 
+    // 4. 确定图像类型
     // Convert to image.
     bool isColor = false;
     if (image.channels() >= 3) isColor = true;
     bool hasAlpha = false;
     if (image.channels() >= 4) hasAlpha = true;
 
-    for (GridMapIterator iterator(map); !iterator.isPastEnd(); ++iterator) {
-      const Index index(*iterator);
-      if (std::isfinite(data(index(0), index(1)))) {
-        const float& value = data(index(0), index(1));
-        const Type_ imageValue = (Type_) (((value - lowerValue) / (upperValue - lowerValue)) * (float) imageMax);
-        const Index imageIndex(iterator.getUnwrappedIndex());
-        unsigned int channel = 0;
-        image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[channel] = imageValue;
+    // 5.转换为图像，方法与图像转grdimap类似
+    for (GridMapIterator iterator(map); !iterator.isPastEnd(); ++iterator)
+    {
+        const Index index(*iterator);
+        // 判断value是否为有限位
+        if (std::isfinite(data(index(0), index(1))))
+        {
+            const float& value = data(index(0), index(1));
+            const Type_ imageValue = (Type_) (((value - lowerValue) / (upperValue - lowerValue)) * (float) imageMax);
+            // 由循环的buff中的index转换为绝对的index
+            const Index imageIndex(iterator.getUnwrappedIndex());
+            unsigned int channel = 0;
+            image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[channel] = imageValue;
 
-        if (isColor) {
-          image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[++channel] = imageValue;
-          image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[++channel] = imageValue;
+            if (isColor)
+            {
+                image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[++channel] = imageValue;
+                image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[++channel] = imageValue;
+            }
+            if (hasAlpha)
+            {
+                image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[++channel] = imageMax;
+            }
         }
-        if (hasAlpha) {
-          image.at<cv::Vec<Type_, NChannels_>>(imageIndex(0), imageIndex(1))[++channel] = imageMax;
-        }
-      }
     }
 
     return true;

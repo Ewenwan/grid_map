@@ -20,10 +20,15 @@ VisualizationBase::~VisualizationBase()
 {
 }
 
+/**
+ * @description     [获取发布该消息之后，订阅者的个数]
+ * @return          [有订阅者返回为真，反之为假]反之为假
+ */
 bool VisualizationBase::isActive() const
 {
-  if (publisher_.getNumSubscribers() > 0) return true;
-  return false;
+    if (publisher_.getNumSubscribers() > 0)
+      return true;
+    return false;
 }
 
 bool VisualizationBase::readParameters(XmlRpc::XmlRpcValue& config)

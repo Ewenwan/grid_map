@@ -51,17 +51,22 @@ bool OccupancyGridVisualization::initialize()
   return true;
 }
 
+/**
+ * @description     [占有图层的显示]
+ * @param map
+ * @return
+ */
 bool OccupancyGridVisualization::visualize(const grid_map::GridMap& map)
 {
-  if (!isActive()) return true;
-  if (!map.exists(layer_)) {
-    ROS_WARN_STREAM("OccupancyGridVisualization::visualize: No grid map layer with name '" << layer_ << "' found.");
-    return false;
-  }
-  nav_msgs::OccupancyGrid occupancyGrid;
-  grid_map::GridMapRosConverter::toOccupancyGrid(map, layer_, dataMin_, dataMax_, occupancyGrid);
-  publisher_.publish(occupancyGrid);
-  return true;
+    if (!isActive()) return true;
+    if (!map.exists(layer_)) {
+      ROS_WARN_STREAM("OccupancyGridVisualization::visualize: No grid map layer with name '" << layer_ << "' found.");
+      return false;
+    }
+    nav_msgs::OccupancyGrid occupancyGrid;
+    grid_map::GridMapRosConverter::toOccupancyGrid(map, layer_, dataMin_, dataMax_, occupancyGrid);
+    publisher_.publish(occupancyGrid);
+    return true;
 }
 
 } /* namespace */

@@ -34,21 +34,30 @@ bool PointCloudVisualization::readParameters(XmlRpc::XmlRpcValue& config)
 
 bool PointCloudVisualization::initialize()
 {
-  publisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(name_, 1, true);
-  return true;
+    // gridmap最终转换为点云发布
+    publisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>(name_, 1, true);
+    return true;
 }
 
+/**
+ * @description     [将gridmap转为点云]
+ * @param   map     [需要转换的Gridmap]
+ * @return
+ */
 bool PointCloudVisualization::visualize(const grid_map::GridMap& map)
 {
-  if (!isActive()) return true;
-  if (!map.exists(layer_)) {
-    ROS_WARN_STREAM("PointCloudVisualization::visualize: No grid map layer with name '" << layer_ << "' found.");
-    return false;
-  }
-  sensor_msgs::PointCloud2 pointCloud;
-  grid_map::GridMapRosConverter::toPointCloud(map, layer_, pointCloud);
-  publisher_.publish(pointCloud);
-  return true;
+    if (!isActive())
+      return true;
+    if (!map.exists(layer_))
+    {
+        ROS_WARN_STREAM("PointCloudVisualization::visualize: No grid map layer with name '" << layer_ << "' found.");
+        return false;
+    }
+    sensor_msgs::PointCloud2 pointCloud;
+    // layer_:参数文件中的layer，表示最终转换后的点云地图的layer
+    grid_map::GridMapRosConverter::toPointCloud(map, layer_, pointCloud);
+    publisher_.publish(pointCloud);
+    return true;
 }
 
 } /* namespace */

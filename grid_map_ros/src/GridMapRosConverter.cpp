@@ -161,12 +161,14 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
 
     for (const auto& layer : layers)
     {
+        // 坐标层
         if (layer == pointLayer)
         {
             fieldNames.push_back("x");
             fieldNames.push_back("y");
             fieldNames.push_back("z");
         }
+        // 色彩层
         else if (layer == "color")
         {
             fieldNames.push_back("rgb");
@@ -177,10 +179,13 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
         }
     }
 
+
     pointCloud.fields.clear();
     pointCloud.fields.reserve(fieldNames.size());
     int offset = 0;
 
+    // sensor_msgs::PointCloud2数据类型说明：http://docs.ros.org/jade/api/sensor_msgs/html/msg/PointCloud2.html
+    // filed描述了点云各层数据的信息
     for (auto& name : fieldNames)
     {
         sensor_msgs::PointField pointField;
@@ -195,18 +200,22 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
     // Resize.
     size_t maxNumberOfPoints = gridMap.getSize().prod();
     pointCloud.height = 1;
+    // 当高度为1时，宽表示点云的个数
     pointCloud.width = maxNumberOfPoints;
+    // 单个点云的字节长度
     pointCloud.point_step = offset;
+    // 一行点云的长度
     pointCloud.row_step = pointCloud.width * pointCloud.point_step;
     pointCloud.data.resize(pointCloud.height * pointCloud.row_step);
 
     // Points.
-    std::unordered_map<std::string, sensor_msgs::PointCloud2Iterator<float>> fieldIterators;
+    std::unordered_map< std::string, sensor_msgs::PointCloud2Iterator<float> > fieldIterators;
     for (auto& name : fieldNames)
     {
         fieldIterators.insert(
-            std::pair<std::string, sensor_msgs::PointCloud2Iterator<float>>(
-                name, sensor_msgs::PointCloud2Iterator<float>(pointCloud, name)));
+            std::pair<std::string, sensor_msgs::PointCloud2Iterator<float>>
+                    (name, sensor_msgs::PointCloud2Iterator <float>(pointCloud, name))
+        );
     }
 
     GridMapIterator mapIterator(gridMap);
@@ -224,6 +233,7 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
             }
         }
 
+        // 该索引无效
         Position3 position;
         if (!gridMap.getPosition3(pointLayer, *mapIterator, position))
         {
@@ -231,6 +241,7 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
             continue;
         }
 
+        // 按照feiled name依次获取gridmap的坐标信息和各图层的value
         for (auto& iterator : fieldIterators)
         {
             if (iterator.first == "x")
@@ -256,6 +267,7 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
         }
 
         ++mapIterator;
+        // 这个地方叠加的是点云的迭代器sensor_msgs::PointCloud2Iterator
         for (auto& iterator : fieldIterators)
         {
             ++iterator.second;
@@ -263,6 +275,7 @@ void GridMapRosConverter::toPointCloud(const grid_map::GridMap& gridMap,
         ++realNumberOfPoints;
     }
 
+    // 调整点云消息的大小
     if (realNumberOfPoints != maxNumberOfPoints)
     {
         pointCloud.width = realNumberOfPoints;
@@ -317,67 +330,103 @@ bool GridMapRosConverter::fromOccupancyGrid(const nav_msgs::OccupancyGrid& occup
   return true;
 }
 
+/**
+ * @description         [将gridmap转化为occupancyGrid]
+ * @param gridMap       []
+ * @param layer         [要转换的Gridmap的layer]
+ * @param dataMin       []
+ * @param dataMax       []
+ * @param occupancyGrid
+ */
 void GridMapRosConverter::toOccupancyGrid(const grid_map::GridMap& gridMap,
                                           const std::string& layer, float dataMin, float dataMax,
                                           nav_msgs::OccupancyGrid& occupancyGrid)
 {
-  occupancyGrid.header.frame_id = gridMap.getFrameId();
-  occupancyGrid.header.stamp.fromNSec(gridMap.getTimestamp());
-  occupancyGrid.info.map_load_time = occupancyGrid.header.stamp;  // Same as header stamp as we do not load the map.
-  occupancyGrid.info.resolution = gridMap.getResolution();
-  occupancyGrid.info.width = gridMap.getSize()(0);
-  occupancyGrid.info.height = gridMap.getSize()(1);
-  Position position = gridMap.getPosition() - 0.5 * gridMap.getLength().matrix();
-  occupancyGrid.info.origin.position.x = position.x();
-  occupancyGrid.info.origin.position.y = position.y();
-  occupancyGrid.info.origin.position.z = 0.0;
-  occupancyGrid.info.origin.orientation.x = 0.0;
-  occupancyGrid.info.origin.orientation.y = 0.0;
-  occupancyGrid.info.origin.orientation.z = 0.0;
-  occupancyGrid.info.origin.orientation.w = 1.0;
-  size_t nCells = gridMap.getSize().prod();
-  occupancyGrid.data.resize(nCells);
+    // 1. 获取占有地图的大小
+    occupancyGrid.header.frame_id = gridMap.getFrameId();
+    occupancyGrid.header.stamp.fromNSec(gridMap.getTimestamp());
+    occupancyGrid.info.map_load_time = occupancyGrid.header.stamp;  // Same as header stamp as we do not load the map.
+    occupancyGrid.info.resolution = gridMap.getResolution();
+    occupancyGrid.info.width = gridMap.getSize()(0);
+    occupancyGrid.info.height = gridMap.getSize()(1);
 
-  // Occupancy probabilities are in the range [0,100]. Unknown is -1.
-  const float cellMin = 0;
-  const float cellMax = 100;
-  const float cellRange = cellMax - cellMin;
+    // 2. 获取occupancyGrid地图的坐标原点。(其坐标原点在左上角)
+    Position position = gridMap.getPosition() - 0.5 * gridMap.getLength().matrix();
+    occupancyGrid.info.origin.position.x = position.x();
+    occupancyGrid.info.origin.position.y = position.y();
+    occupancyGrid.info.origin.position.z = 0.0;
+    occupancyGrid.info.origin.orientation.x = 0.0;
+    occupancyGrid.info.origin.orientation.y = 0.0;
+    occupancyGrid.info.origin.orientation.z = 0.0;
+    occupancyGrid.info.origin.orientation.w = 1.0;
+    size_t nCells = gridMap.getSize().prod();
+    occupancyGrid.data.resize(nCells);
 
-  for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator) {
-    float value = (gridMap.at(layer, *iterator) - dataMin) / (dataMax - dataMin);
-    if (isnan(value))
-      value = -1;
-    else
-      value = cellMin + min(max(0.0f, value), 1.0f) * cellRange;
-    size_t index = getLinearIndexFromIndex(iterator.getUnwrappedIndex(), gridMap.getSize(), false);
-    // Reverse cell order because of different conventions between occupancy grid and grid map.
-    occupancyGrid.data[nCells - index - 1] = value;
-  }
+    // Occupancy probabilities are in the range [0,100]. Unknown is -1.
+    const float cellMin = 0;
+    const float cellMax = 100;
+    const float cellRange = cellMax - cellMin;
+
+    // 3. 存放value
+    for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator)
+    {
+        // 做归一化，后面做了限幅
+        float value = (gridMap.at(layer, *iterator) - dataMin) / (dataMax - dataMin);
+        if (isnan(value))
+            value = -1;
+        else
+            // 先限幅再放大
+            value = cellMin + min(max(0.0f, value), 1.0f) * cellRange;
+        size_t index = getLinearIndexFromIndex(iterator.getUnwrappedIndex(), gridMap.getSize(), false);
+        // Reverse cell order because of different conventions between occupancy grid and grid map.
+        // occupancyGrid的索引起始点在右下角？
+        occupancyGrid.data[nCells - index - 1] = value;
+    }
 }
 
+/**
+ * @description             [将gridmap转为gridcell显示]
+ * @param gridMap
+ * @param layer
+ * @param lowerThreshold
+ * @param upperThreshold
+ * @param gridCells
+ */
 void GridMapRosConverter::toGridCells(const grid_map::GridMap& gridMap, const std::string& layer,
                                       float lowerThreshold, float upperThreshold,
                                       nav_msgs::GridCells& gridCells)
 {
-  gridCells.header.frame_id = gridMap.getFrameId();
-  gridCells.header.stamp.fromNSec(gridMap.getTimestamp());
-  gridCells.cell_width = gridMap.getResolution();
-  gridCells.cell_height = gridMap.getResolution();
+    // 1. 设置gridcell地图的大小
+    gridCells.header.frame_id = gridMap.getFrameId();
+    gridCells.header.stamp.fromNSec(gridMap.getTimestamp());
+    gridCells.cell_width = gridMap.getResolution();
+    gridCells.cell_height = gridMap.getResolution();
 
-  for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator) {
-    if (!gridMap.isValid(*iterator, layer)) continue;
-    if (gridMap.at(layer, *iterator) >= lowerThreshold
-        && gridMap.at(layer, *iterator) <= upperThreshold) {
-      Position position;
-      gridMap.getPosition(*iterator, position);
-      geometry_msgs::Point point;
-      point.x = position.x();
-      point.y = position.y();
-      gridCells.cells.push_back(point);
+    // 只接受阈值范围之内的gridmap cell单元
+    for (GridMapIterator iterator(gridMap); !iterator.isPastEnd(); ++iterator)
+    {
+        if (!gridMap.isValid(*iterator, layer)) continue;
+        if (gridMap.at(layer, *iterator) >= lowerThreshold
+         && gridMap.at(layer, *iterator) <= upperThreshold)
+        {
+            Position position;
+            gridMap.getPosition(*iterator, position);
+            geometry_msgs::Point point;
+            point.x = position.x();
+            point.y = position.y();
+            gridCells.cells.push_back(point);
+        }
     }
-  }
 }
 
+/**
+ * @description         [根据图像对gridmap进行初始化]
+ * @param image
+ * @param resolution
+ * @param gridMap
+ * @param position
+ * @return
+ */
 bool GridMapRosConverter::initializeFromImage(const sensor_msgs::Image& image,
                                               const double resolution, grid_map::GridMap& gridMap,
                                               const grid_map::Position& position)
@@ -391,67 +440,94 @@ bool GridMapRosConverter::initializeFromImage(const sensor_msgs::Image& image,
   return true;
 }
 
+/**
+ * @description     [g根据图像类型添加layer]
+ * @param image
+ * @param layer
+ * @param gridMap
+ * @param lowerValue
+ * @param upperValue
+ * @param alphaThreshold
+ * @return
+ */
 bool GridMapRosConverter::addLayerFromImage(const sensor_msgs::Image& image,
                                             const std::string& layer, grid_map::GridMap& gridMap,
                                             const float lowerValue, const float upperValue,
                                             const double alphaThreshold)
 {
-  cv_bridge::CvImageConstPtr cvImage;
-  try {
-    // TODO Use `toCvShared()`?
-    cvImage = cv_bridge::toCvCopy(image, image.encoding);
-  } catch (cv_bridge::Exception& e) {
-    ROS_ERROR("cv_bridge exception: %s", e.what());
-    return false;
-  }
+    // 1.从ros消息中提取image
+    cv_bridge::CvImageConstPtr cvImage;
+    try
+    {
+        // TODO Use `toCvShared()`?
+        cvImage = cv_bridge::toCvCopy(image, image.encoding);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return false;
+    }
 
-  const int cvEncoding = cv_bridge::getCvType(image.encoding);
-  switch (cvEncoding) {
-    case CV_8UC1:
-      return GridMapCvConverter::addLayerFromImage<unsigned char, 1>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
-    case CV_8UC3:
-      return GridMapCvConverter::addLayerFromImage<unsigned char, 3>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
-    case CV_8UC4:
-      return GridMapCvConverter::addLayerFromImage<unsigned char, 4>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
-    case CV_16UC1:
-      return GridMapCvConverter::addLayerFromImage<unsigned short, 1>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
-    case CV_16UC3:
-      return GridMapCvConverter::addLayerFromImage<unsigned short, 3>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
-    case CV_16UC4:
-      return GridMapCvConverter::addLayerFromImage<unsigned short, 4>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
-    default:
-      ROS_ERROR("Expected MONO8, MONO16, RGB(A)8, RGB(A)16, BGR(A)8, or BGR(A)16 image encoding.");
-      return false;
-  }
+    const int cvEncoding = cv_bridge::getCvType(image.encoding);
+    switch (cvEncoding)
+    {
+        case CV_8UC1:
+            return GridMapCvConverter::addLayerFromImage<unsigned char, 1>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
+        case CV_8UC3:
+            return GridMapCvConverter::addLayerFromImage<unsigned char, 3>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
+        case CV_8UC4:
+            return GridMapCvConverter::addLayerFromImage<unsigned char, 4>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
+        case CV_16UC1:
+            return GridMapCvConverter::addLayerFromImage<unsigned short, 1>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
+        case CV_16UC3:
+            return GridMapCvConverter::addLayerFromImage<unsigned short, 3>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
+        case CV_16UC4:
+            return GridMapCvConverter::addLayerFromImage<unsigned short, 4>(cvImage->image, layer, gridMap, lowerValue, upperValue, alphaThreshold);
+        default:
+            ROS_ERROR("Expected MONO8, MONO16, RGB(A)8, RGB(A)16, BGR(A)8, or BGR(A)16 image encoding.");
+            return false;
+    }
 }
 
+/**
+ * @description     [添加颜色层layer，与上一函数类似]
+ * @param image
+ * @param layer
+ * @param gridMap
+ * @return
+ */
 bool GridMapRosConverter::addColorLayerFromImage(const sensor_msgs::Image& image,
                                                  const std::string& layer,
                                                  grid_map::GridMap& gridMap)
 {
-  cv_bridge::CvImageConstPtr cvImage;
-  try {
-    cvImage = cv_bridge::toCvCopy(image, image.encoding);
-  } catch (cv_bridge::Exception& e) {
-    ROS_ERROR("cv_bridge exception: %s", e.what());
-    return false;
-  }
+    cv_bridge::CvImageConstPtr cvImage;
+    try
+    {
+        cvImage = cv_bridge::toCvCopy(image, image.encoding);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return false;
+    }
 
-  const int cvEncoding = cv_bridge::getCvType(image.encoding);
-  switch (cvEncoding) {
-    case CV_8UC3:
-      return GridMapCvConverter::addColorLayerFromImage<unsigned char, 3>(cvImage->image, layer, gridMap);
-    case CV_8UC4:
-      return GridMapCvConverter::addColorLayerFromImage<unsigned char, 4>(cvImage->image, layer, gridMap);
-    case CV_16UC3:
-      return GridMapCvConverter::addColorLayerFromImage<unsigned short, 3>(cvImage->image, layer, gridMap);
-    case CV_16UC4:
-      return GridMapCvConverter::addColorLayerFromImage<unsigned short, 4>(cvImage->image, layer, gridMap);
-    default:
-      ROS_ERROR("Expected RGB(A)8, RGB(A)16, BGR(A)8, or BGR(A)16 image encoding.");
-      return false;
-  }
+    const int cvEncoding = cv_bridge::getCvType(image.encoding);
+    switch (cvEncoding)
+    {
+        case CV_8UC3:
+            return GridMapCvConverter::addColorLayerFromImage<unsigned char, 3>(cvImage->image, layer, gridMap);
+        case CV_8UC4:
+            return GridMapCvConverter::addColorLayerFromImage<unsigned char, 4>(cvImage->image, layer, gridMap);
+        case CV_16UC3:
+            return GridMapCvConverter::addColorLayerFromImage<unsigned short, 3>(cvImage->image, layer, gridMap);
+        case CV_16UC4:
+            return GridMapCvConverter::addColorLayerFromImage<unsigned short, 4>(cvImage->image, layer, gridMap);
+        default:
+            ROS_ERROR("Expected RGB(A)8, RGB(A)16, BGR(A)8, or BGR(A)16 image encoding.");
+            return false;
+    }
 }
+
 
 bool GridMapRosConverter::toImage(const grid_map::GridMap& gridMap, const std::string& layer,
                                   const std::string encoding, sensor_msgs::Image& image)
@@ -508,6 +584,15 @@ bool GridMapRosConverter::toCvImage(const grid_map::GridMap& gridMap, const std:
   }
 }
 
+/**
+ * @description     [将gridmap保存为ros的bag形式
+ *                  http://wiki.ros.org/Bags
+ *                  ]
+ * @param gridMap
+ * @param pathToBag
+ * @param topic
+ * @return
+ */
 bool GridMapRosConverter::saveToBag(const grid_map::GridMap& gridMap, const std::string& pathToBag,
                                     const std::string& topic)
 {
