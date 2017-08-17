@@ -187,7 +187,6 @@ class GridMapCvConverter
       {
           const auto& cvColor = imageRGB.at<cv::Vec<Type_, 3>>((*iterator)(0), (*iterator)(1));
           Eigen::Vector3i colorVector;
-          Eigen::Vector3i colorVector;
           colorVector(0) = cvColor[0];
           colorVector(1) = cvColor[1];
           colorVector(2) = cvColor[2];

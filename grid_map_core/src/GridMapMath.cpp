@@ -113,13 +113,13 @@ inline Index getBufferIndexFromIndex(
     const Size& bufferSize,
     const Index& bufferStartIndex)
 {
-  if (checkIfStartIndexAtDefaultPosition(bufferStartIndex))
+    if (checkIfStartIndexAtDefaultPosition(bufferStartIndex))
     return index;
 
-  Index bufferIndex = index + bufferStartIndex;
-  // 确保bufferIndex在缓冲区buffer之内
-  mapIndexWithinRange(bufferIndex, bufferSize);
-  return bufferIndex;
+    Index bufferIndex = index + bufferStartIndex;
+    // 确保bufferIndex在缓冲区buffer之内
+    mapIndexWithinRange(bufferIndex, bufferSize);
+    return bufferIndex;
 }
 
 /**
@@ -347,8 +347,7 @@ void mapIndexWithinRange(int& index, const int& bufferSize)
 
 /**
  * @function    [limitPositionToRange]
- * @description [限制确保该position必须在map之内
- *              那这个函数的作用体现在什么地方]
+ * @description [限制确保该position必须在map之内]
  * @param       position      [位置坐标]
  * @param       mapLength     [地图的长宽大小]
  * @param       mapPosition   [地图位置]
