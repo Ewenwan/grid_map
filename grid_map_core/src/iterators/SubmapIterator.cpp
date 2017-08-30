@@ -24,15 +24,17 @@ SubmapIterator::SubmapIterator(const grid_map::GridMap& gridMap,
 {
 }
 /**
- * (索引坐标中心) (自地图索引坐标中心)
+ * (索引坐标中心) (zi地图索引坐标中心)
  *     \ ______/_________________
- *     |     |   |              |
+ *     |      /                 |
+ *     |     /___               |
  *     |     |子 |              |
- *     |     |地 |    | (实际    |
- *     |     |图 |  __| 坐标中心) |
+ *     |     |地 |    | (实际   |
+ *     |     |图 |  __| 坐标    |
+ *     |     |   |      中心)   |
  *     |     |   |              |
- *     |     |   |              |
- *     |_____|___|______________|
+ *     |     |___|              |
+ *     |________________________|
  */
 
 /**
@@ -48,7 +50,7 @@ SubmapIterator::SubmapIterator(const grid_map::GridMap& gridMap, const Index& su
 {
   // 实际父地图大小
   size_ = gridMap.getSize ();
-  // 实际目的图的索引中心
+  // 父的索引中心
   startIndex_ = gridMap.getStartIndex ();
   // 子地图的索引中心
   index_ = submapStartIndex;

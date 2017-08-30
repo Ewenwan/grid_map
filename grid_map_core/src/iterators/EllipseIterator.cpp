@@ -33,8 +33,8 @@ EllipseIterator::EllipseIterator(const GridMap& gridMap, const Position& center,
     double sinRotation = sin(rotation);
     double cosRotation = cos(rotation);
     transformMatrix_ << cosRotation, sinRotation, sinRotation, -cosRotation;
-    // 获取母地图的一些信息
-    mapLength_ = gridMap.getLength();
+    // 获取父地图的一些信息
+    mapLength_ = gridMap.getLength(); 
     mapPosition_ = gridMap.getPosition();
     resolution_ = gridMap.getResolution();
     bufferSize_ = gridMap.getSize();
@@ -107,7 +107,8 @@ bool EllipseIterator::isInside() const
     Position position;
     // 获取该索引在位置坐标系下的坐标
     getPositionFromIndex(position, *(*internalIterator_), mapLength_, mapPosition_, resolution_, bufferSize_, bufferStartIndex_);
-    //该点距圆心的距离与椭圆边界距圆心的距离，如果小在圆内，大则在圆外
+    // 同时比较两个轴向上的距离，如果都小在圆内，大则在圆外
+    //！x2/a2+y2/b2<=1，则在椭圆内
     double value = ((transformMatrix_ * (position - center_)).array().square() / semiAxisSquare_).sum();
     return (value <= 1);
 }
@@ -133,7 +134,7 @@ void EllipseIterator::findSubmapParameters(const Position& center, const Length&
     Eigen::Vector2d v = rotationMatrix * Eigen::Vector2d(0.0, length(1));
 
     // 3. 构建椭圆的外接矩形
-    // 求取短轴和长轴的和向量的长度
+    // 求取短轴和长轴的和向量的长度之和
     const Length boundingBoxHalfLength = (u.cwiseAbs2() + v.cwiseAbs2()).array().sqrt();
     // 求取矩形左上角的点
     Position topLeft = center.array() + boundingBoxHalfLength;

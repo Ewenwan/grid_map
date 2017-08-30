@@ -31,9 +31,10 @@ CircleIterator::CircleIterator(const GridMap& gridMap, const Position& center, c
     resolution_ = gridMap.getResolution();
     bufferSize_ = gridMap.getSize();
     bufferStartIndex_ = gridMap.getStartIndex();
+
+    //！
     Index submapStartIndex;
     Index submapBufferSize;
-    //
     findSubmapParameters(center, radius, submapStartIndex, submapBufferSize);
     internalIterator_ = std::shared_ptr<SubmapIterator>(new SubmapIterator(gridMap, submapStartIndex, submapBufferSize));
     // 如果刚开始不在圆内，则迭代一次

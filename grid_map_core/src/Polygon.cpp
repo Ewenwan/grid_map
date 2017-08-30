@@ -34,7 +34,7 @@ Polygon::~Polygon() {}
  *     http://www.cnblogs.com/luxiaoxun/p/3722358.html
  *     http://www.geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon/
  *    以测试点A为发射源，统计以A点纵坐标为界限的两侧的与多边形的交点个数，
- *    在实际操作的时候，一般只统计单侧，下面的算法就只统计了穿过左侧的次数
+ *    在实际操作的时候，一般只统计单侧，下面的算法就只统计了穿过x轴正向的次数
  *    偶数：在多边形外；     奇数：在多边形内
  *
  *      设要判断点C是否在多边形内，vertices_[i]和vertices_[j]用A，B表示
@@ -130,6 +130,7 @@ void Polygon::resetTimestamp()
  * @description     [计算多边形的面积
  *     可以直接向量的叉积,具体可以参考
  *     http://blog.csdn.net/xxdddail/article/details/48973269
+ *     但是这个地方求取的明显有问题啊
  *     ]
  * @return
  */
@@ -177,6 +178,9 @@ Position Polygon::getCentroid() const
  * @function        [convertToInequalityConstraints]
  * @description     [ 将所有点转换为一个紧包含所有点的不等式约束
  *                      来约束多边形的凸包
+ *                   一般是知道多个不等式的约束条件，然后求取不等式包围的多边形。
+ *                   该函数是知道多边形，然后求取这些不等式约束，使不等式约束包含尽可能多的多边形顶点。
+ *                   形成Ax<=b的约束
  *      Ax<=b
  *      参考：http://cn.mathworks.com/matlabcentral/fileexchange/7895-vert2con-vertices-to-constraints
  *           http://blog.csdn.net/bone_ace/article/details/46239187
@@ -195,7 +199,7 @@ bool Polygon::convertToInequalityConstraints(Eigen::MatrixXd& A, Eigen::VectorXd
 
     // Create k, a list of indices from V forming the convex hull.
     // TODO: Assuming counter-clockwise ordered convex polygon.
-    // MATLAB: k = convhulln(V); 求去整个凸包的边缘点
+    // MATLAB: k = convhulln(V); 求取整个凸包的边缘点
     // K矩阵包含多边形的相邻顶点(一个列向量)
     Eigen::MatrixXi k;
     k.resizeLike(V);
@@ -246,17 +250,24 @@ bool Polygon::convertToInequalityConstraints(Eigen::MatrixXd& A, Eigen::VectorXd
  *      参考：https://en.wikipedia.org/wiki/Straight_skeleton
  *      算法详细介绍：http://blog.csdn.net/happy__888/article/details/315762
  * ]
- * @param margin    [s缩放的距离]
+ * @param margin    [s缩放的距离，缩放之后两个平行线之间的距离]
+ *
+ *            /
+ *         P /_______ V1
+ *          /       /
+ *         /       /
+ *     V1 /_______/
  * @return
  */
 bool Polygon::offsetInward(const double margin)
 {
     // Create a list of indices of the neighbours of each vertex.
     // TODO: Assuming counter-clockwise ordered convex polygon.
-    // 1. 建立一个相邻点的向量，如有三个点1,2,3则，neighbourIndeices为
-    //      | 2 1 |
+    // 1. 建立一个相邻点的向量，如有四个点1,2,3,4则，neighbourIndeices为
+    //      | 3 1 |
     //      | 0 2 |
-    //      | 1 0 |
+    //      | 1 3 |
+    //      | 2 0 |
     std::vector<Eigen::Array2i> neighbourIndices;
     const unsigned int n = nVertices();
     neighbourIndices.resize(n);
@@ -269,7 +280,7 @@ bool Polygon::offsetInward(const double margin)
     for (unsigned int i = 0; i < neighbourIndices.size(); ++i)
     {
 
-        // 2.1 提取由该点出发的两条边
+        // 2.1 提取由vertices_[i]关联的两条边
         Eigen::Vector2d v1 = vertices_[neighbourIndices[i](0)] - vertices_[i];
         Eigen::Vector2d v2 = vertices_[neighbourIndices[i](1)] - vertices_[i];
         v1.normalize();
@@ -285,17 +296,14 @@ bool Polygon::offsetInward(const double margin)
 
 /**
  * @function        [fromCircle]
- * @descrption      [
- *          做多边形的逼近圆
- *      如果是这样算法的话，那么半径radius的选择岂不是很重要？
- * ]
+ * @descrption      [用多边形的逼近圆]
  * @param center
  * @param radius
  * @param nVertices
  * @return
  */
 Polygon Polygon::fromCircle(const Position center, const double radius,
-                                  const int nVertices)
+                                  const                                                                                                                                                          int nVertices)
 {
     Eigen::Vector2d centerToVertex(radius, 0.0), centerToVertexTemp;
     Polygon polygon;
@@ -315,9 +323,8 @@ Polygon Polygon::fromCircle(const Position center, const double radius,
 /**
  * @function        [convexHullOfTwoCircles]
  * @description     [
- *          做带有一个凸包的两个圆，并将其最终生成的多边形
- *      和fromCircle函数类似，做了两个圆来近似原多边形的凸包
- *      但是，像这样的圆的半径是怎么确定的，如果半径过小，怎么表示凸包呢？
+ *                  用凸包近似两个圆，并将其最终生成的多边形
+ *                  和fromCircle函数类似，做了两个圆来近似多边形的凸包
  * ]
  * @param center1
  * @param center2
@@ -380,7 +387,7 @@ Polygon Polygon::convexHull(Polygon& polygon1, Polygon& polygon2)
     std::vector<Position> hull(vertices.size()+1);
 
     // Sort points lexicographically
-    // 对vertices中的点按照自左下到右上的顺序排列
+    // 将顶点按照字典序排列，坐标从左向右排序
     std::sort(vertices.begin(), vertices.end(), sortVertices);
 
     int k = 0;
@@ -388,7 +395,7 @@ Polygon Polygon::convexHull(Polygon& polygon1, Polygon& polygon2)
     // 建立凸包的下边缘
     for (int i = 0; i < vertices.size(); ++i)
     {
-        // 点（k-1）在点i的左侧(上侧)，则这个点不要
+        // 设点A
         while (k >= 2
             && computeCrossProduct2D(hull.at(k - 1) - hull.at(k - 2),
                                      vertices.at(i) - hull.at(k - 2)) <= 0)
@@ -397,7 +404,7 @@ Polygon Polygon::convexHull(Polygon& polygon1, Polygon& polygon2)
     }
 
     // Build upper hull
-    // 建立上边缘，倒序
+    // 构建多边形凸包的下边缘
     for (int i = vertices.size() - 2, t = k + 1; i >= 0; i--)
     {
         //
@@ -430,7 +437,7 @@ bool Polygon::sortVertices(const Eigen::Vector2d& vector1,
 /**
  * @description     [计算两个向量的叉乘
  *      V1×V2 = x1*y2 - y1*x2
- *      点V1在点V2的右侧，叉乘大于0，垂直等于0，左侧小于0
+ *      可以用右手定则判断：旋转角为锐角，z轴向上大于0，z轴向下小于0
  *      ]
  *
  * @param vector1

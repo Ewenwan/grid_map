@@ -458,74 +458,112 @@ void GridMap::setPosition(const Position& position)
   position_ = position;
 }
 
+/**
+ * [GridMap::move 将地图的位置原点移动到position，得到新的地图区域newRegions]
+ * @param  position   [新的坐标原点]
+ * @param  newRegions [得到新的地图区域newRegions]
+ * @return            [description]
+ *
+ * Question: 这个最后生成的newRegions用到什么地方？
+ * 
+ */
 bool GridMap::move(const Position& position, std::vector<BufferRegion>& newRegions)
 {
-  Index indexShift;
-  Position positionShift = position - position_;
-  getIndexShiftFromPositionShift(indexShift, positionShift, resolution_);
-  Position alignedPositionShift;
-  getPositionShiftFromIndexShift(alignedPositionShift, indexShift, resolution_);
+    Index indexShift;
+    Position positionShift = position - position_;
+    //！由地图的位置偏移得到索引偏移
+    getIndexShiftFromPositionShift(indexShift, positionShift, resolution_);
 
-  // Delete fields that fall out of map (and become empty cells).
-  for (int i = 0; i < indexShift.size(); i++) {
-    if (indexShift(i) != 0) {
-      if (abs(indexShift(i)) >= getSize()(i)) {
-        // Entire map is dropped.
-        clearAll();
-        newRegions.push_back(BufferRegion(Index(0, 0), getSize(), BufferRegion::Quadrant::Undefined));
-      } else {
-        // Drop cells out of map.
-        int sign = (indexShift(i) > 0 ? 1 : -1);
-        int startIndex = startIndex_(i) - (sign < 0 ? 1 : 0);
-        int endIndex = startIndex - sign + indexShift(i);
-        int nCells = abs(indexShift(i));
-        int index = (sign > 0 ? startIndex : endIndex);
-        mapIndexWithinRange(index, getSize()(i));
+    //！获取Index偏移对应的Position偏移(因为上面的Position偏移没有和Index严格对齐)
+    Position alignedPositionShift;
+    getPositionShiftFromIndexShift(alignedPositionShift, indexShift, resolution_);
 
-        if (index + nCells <= getSize()(i)) {
-          // One region to drop.
-          if (i == 0) {
-            clearRows(index, nCells);
-            newRegions.push_back(BufferRegion(Index(index, 0), Size(nCells, getSize()(1)), BufferRegion::Quadrant::Undefined));
-          } else if (i == 1) {
-            clearCols(index, nCells);
-            newRegions.push_back(BufferRegion(Index(0, index), Size(getSize()(0), nCells), BufferRegion::Quadrant::Undefined));
-          }
-        } else {
-          // Two regions to drop.
-          int firstIndex = index;
-          int firstNCells = getSize()(i) - firstIndex;
-          if (i == 0) {
-            clearRows(firstIndex, firstNCells);
-            newRegions.push_back(BufferRegion(Index(firstIndex, 0), Size(firstNCells, getSize()(1)), BufferRegion::Quadrant::Undefined));
-          } else if (i == 1) {
-            clearCols(firstIndex, firstNCells);
-            newRegions.push_back(BufferRegion(Index(0, firstIndex), Size(getSize()(0), firstNCells), BufferRegion::Quadrant::Undefined));
-          }
+    //！删除由于地图位置偏移而产生的空白cell
+    // Delete fields that fall out of map (and become empty cells).
+    for (int i = 0; i < indexShift.size(); i++) 
+    {
+        if (indexShift(i) != 0) 
+        {
+            //！如果某个轴向的偏移大于原来地图的大小，则清除所有cell中的数据，直接将起始索引点置为(0,0)，设置新的BufferRegion
+            if (abs(indexShift(i)) >= getSize()(i)) 
+            {
+                // Entire map is dropped.
+                clearAll();
+                newRegions.push_back(BufferRegion(Index(0, 0), getSize(), BufferRegion::Quadrant::Undefined));
+            } 
+            else
+            {
+                // Drop cells out of map.
+                int sign = (indexShift(i) > 0 ? 1 : -1);
+                int startIndex = startIndex_(i) - (sign < 0 ? 1 : 0);
+                int endIndex = startIndex - sign + indexShift(i);
+                int nCells = abs(indexShift(i));
+                int index = (sign > 0 ? startIndex : endIndex);
+                mapIndexWithinRange(index, getSize()(i));
 
-          int secondIndex = 0;
-          int secondNCells = nCells - firstNCells;
-          if (i == 0) {
-            clearRows(secondIndex, secondNCells);
-            newRegions.push_back(BufferRegion(Index(secondIndex, 0), Size(secondNCells, getSize()(1)), BufferRegion::Quadrant::Undefined));
-          } else if (i == 1) {
-            clearCols(secondIndex, secondNCells);
-            newRegions.push_back(BufferRegion(Index(0, secondIndex), Size(getSize()(0), secondNCells), BufferRegion::Quadrant::Undefined));
-          }
+                //！一般的首次移动
+                if (index + nCells <= getSize()(i)) 
+                {
+                    // One region to drop.
+                    if (i == 0) 
+                    {
+                        clearRows(index, nCells);
+                        newRegions.push_back(BufferRegion(Index(index, 0), Size(nCells, getSize()(1)), BufferRegion::Quadrant::Undefined));
+                    } 
+                    else if (i == 1)
+                    {
+                        clearCols(index, nCells);
+                        newRegions.push_back(BufferRegion(Index(0, index), Size(getSize()(0), nCells), BufferRegion::Quadrant::Undefined));
+                    }
+                } 
+                //！
+                else 
+                {
+                    // Two regions to drop.
+                    int firstIndex = index;
+                    int firstNCells = getSize()(i) - firstIndex;
+                    if (i == 0) 
+                    {
+                        clearRows(firstIndex, firstNCells);
+                        newRegions.push_back(BufferRegion(Index(firstIndex, 0), Size(firstNCells, getSize()(1)), BufferRegion::Quadrant::Undefined));
+                    } 
+                    else if (i == 1) 
+                    {
+                        clearCols(firstIndex, firstNCells);
+                        newRegions.push_back(BufferRegion(Index(0, firstIndex), Size(getSize()(0), firstNCells), BufferRegion::Quadrant::Undefined));
+                    }
+
+                    int secondIndex = 0;
+                    int secondNCells = nCells - firstNCells;
+                    if (i == 0) 
+                    {
+                        clearRows(secondIndex, secondNCells);
+                        newRegions.push_back(BufferRegion(Index(secondIndex, 0), Size(secondNCells, getSize()(1)), BufferRegion::Quadrant::Undefined));
+                    } 
+                    else if (i == 1) 
+                    {
+                        clearCols(secondIndex, secondNCells);
+                        newRegions.push_back(BufferRegion(Index(0, secondIndex), Size(getSize()(0), secondNCells), BufferRegion::Quadrant::Undefined));
+                    }
+                }
+            }
         }
-      }
     }
-  }
 
-  // Update information.
-  startIndex_ += indexShift;
-  mapIndexWithinRange(startIndex_, getSize());
-  position_ += alignedPositionShift;
+    // Update information.
+    startIndex_ += indexShift;
+    mapIndexWithinRange(startIndex_, getSize());
+    position_ += alignedPositionShift;
 
-  // Check if map has been moved at all.
-  return (indexShift.any() != 0);
+    // Check if map has been moved at all.
+    return (indexShift.any() != 0);
 }
 
+/**
+ * [GridMap::move 将地图的位置原点移动到position]
+ * @param  position [地图新的坐标原点]
+ * @return          [description]
+ */
 bool GridMap::move(const Position& position)
 {
   std::vector<BufferRegion> newRegions;
@@ -775,22 +813,35 @@ void GridMap::clearAll()
 
 void GridMap::clearRows(unsigned int index, unsigned int nRows)
 {
-  std::vector<std::string> layersToClear;
-  if (basicLayers_.size() > 0) layersToClear = basicLayers_;
-  else layersToClear = layers_;
-  for (auto& layer : layersToClear) {
-    data_.at(layer).block(index, 0, nRows, getSize()(1)).setConstant(NAN);
-  }
+    std::vector<std::string> layersToClear;
+    if (basicLayers_.size() > 0) 
+        layersToClear = basicLayers_;
+    else 
+        layersToClear = layers_;
+
+    //！清除指定的cells，(Start_row, Start_col, Num_row, Num_col)
+    for (auto& layer : layersToClear) 
+    {
+        data_.at(layer).block(index, 0, nRows, getSize()(1)).setConstant(NAN);
+    }
 }
 
+/**
+ * [GridMap::clearCols description]
+ * @param index [description]
+ * @param nCols [description]
+ */
 void GridMap::clearCols(unsigned int index, unsigned int nCols)
 {
-  std::vector<std::string> layersToClear;
-  if (basicLayers_.size() > 0) layersToClear = basicLayers_;
-  else layersToClear = layers_;
-  for (auto& layer : layersToClear) {
-    data_.at(layer).block(0, index, getSize()(0), nCols).setConstant(NAN);
-  }
+    std::vector<std::string> layersToClear;
+    if (basicLayers_.size() > 0) 
+        layersToClear = basicLayers_;
+    else 
+        layersToClear = layers_;
+    for (auto& layer : layersToClear) 
+    {
+        data_.at(layer).block(0, index, getSize()(0), nCols).setConstant(NAN);
+    }
 }
 
 bool GridMap::atPositionLinearInterpolated(const std::string& layer, const Position& position,

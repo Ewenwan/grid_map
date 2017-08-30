@@ -76,7 +76,8 @@ void IteratorsDemo::demoSubmapIterator()
   Index submapBufferSize(12, 7);
 
   for (grid_map::SubmapIterator iterator(map_, submapStartIndex, submapBufferSize);
-      !iterator.isPastEnd(); ++iterator) {
+      !iterator.isPastEnd(); ++iterator) 
+  {
     map_.at("type", *iterator) = 1.0;
     publish();
     ros::Duration duration(0.02);

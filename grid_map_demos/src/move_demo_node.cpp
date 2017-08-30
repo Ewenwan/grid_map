@@ -36,28 +36,32 @@ int main(int argc, char** argv)
     ros::Time startTime = ros::Time::now();
     ros::Duration duration(0.0);
 
-    while (duration <= ros::Duration(10.0)) {
-      ros::Time time = ros::Time::now();
-      duration = time - startTime;
+    while (duration <= ros::Duration(10.0)) 
+    {
+        ros::Time time = ros::Time::now();
+        duration = time - startTime;
 
-      // Change position of the map with either the `move` or `setPosition` method.
-      const double t = duration.toSec();
-      Position newPosition = 0.03 * t * Position(cos(t), sin(t));
+        // Change position of the map with either the `move` or `setPosition` method.
+        const double t = duration.toSec();
+        Position newPosition = 0.03 * t * Position(cos(t), sin(t));
 
-      if (useMoveMethod) {
-        tempMap.move(newPosition);
-      } else {
-        tempMap.setPosition(newPosition);
-      }
+        if (useMoveMethod) 
+        {
+            tempMap.move(newPosition);
+        } 
+        else 
+        {
+            tempMap.setPosition(newPosition);
+        }
 
-      // Publish grid map.
-      tempMap.setTimestamp(time.toNSec());
-      grid_map_msgs::GridMap message;
-      GridMapRosConverter::toMessage(tempMap, message);
-      publisher.publish(message);
-      ROS_DEBUG("Grid map (duration %f) published with new position [%f, %f].",
-                duration.toSec(), tempMap.getPosition().x(), tempMap.getPosition().y());
-      rate.sleep();
+        // Publish grid map.
+        tempMap.setTimestamp(time.toNSec());
+        grid_map_msgs::GridMap message;
+        GridMapRosConverter::toMessage(tempMap, message);
+        publisher.publish(message);
+        ROS_DEBUG("Grid map (duration %f) published with new position [%f, %f].",
+        duration.toSec(), tempMap.getPosition().x(), tempMap.getPosition().y());
+        rate.sleep();
     }
 
     useMoveMethod = !useMoveMethod;

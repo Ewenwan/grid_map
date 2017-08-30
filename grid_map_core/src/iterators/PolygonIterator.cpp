@@ -102,6 +102,7 @@ void PolygonIterator::findSubmapParameters(const grid_map::Polygon& polygon, Ind
     // 1. 实际是要做多边形的外接矩形
     // 求取了x轴的最大值，y轴的最大值，然后组了一个topleft点
     // 求取了x轴的最大值，y轴的最大值，然后组了一个bottomright点
+    // 对于Position坐标系来说，左上角的坐标值是最大的
     Position topLeft = polygon_.getVertices()[0];
     Position bottomRight = topLeft;
     for (const auto& vertex : polygon_.getVertices())

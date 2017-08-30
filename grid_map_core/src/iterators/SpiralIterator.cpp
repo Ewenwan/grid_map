@@ -79,7 +79,7 @@ const Eigen::Array2i& SpiralIterator::operator *() const
  */
 SpiralIterator& SpiralIterator::operator ++()
 {
-    // 先把最后一个index给删了
+    // 先把最后一个index给删了，相当于return一次弹一次
     pointsRing_.pop_back();
     // 当这个环空的时候，再增加环
     if (pointsRing_.empty() && !isPastEnd())
@@ -110,7 +110,10 @@ bool SpiralIterator::isInside(const Index index) const
 
 /**
  * @function        [generateRing]
- * @description     [获取距圆心距离为distance的环上的点]
+ * @description     [获取距圆心距离为distance的环上的点
+ *                  按照顺时针的顺序，绕圆心，以distance_为半径，求取圆上的点存放到pointsRing_中]
+ *
+ * 
  */
 void SpiralIterator::generateRing()
 {

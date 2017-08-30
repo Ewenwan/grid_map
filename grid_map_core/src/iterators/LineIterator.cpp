@@ -93,6 +93,8 @@ const Index& LineIterator::operator *() const
  *      error = error + dx/2 + dy
  *      numerator_ >= denominator_ ==>  dx/2 + dy >=dx   ==>  dy/dx >=0.5
  *      具体可以参考wiki种最佳化的解决方法。
+ *      
+
  */
 LineIterator& LineIterator::operator ++()
 {
@@ -214,6 +216,7 @@ void LineIterator::initializeIterationParameters()
     // 斜率小于1
     if (delta.x() >= delta.y())
     {
+        //！因为x>y,所以一个y至少对应一个x，所以cell的个数可以按照x轴统计
         // There is at least one x-value for every y-value.
         increment1_.x() = 0; // Do not change the x when numerator >= denominator.
         increment2_.y() = 0; // Do not change the y for every iteration.
@@ -223,7 +226,7 @@ void LineIterator::initializeIterationParameters()
         nCells_ = delta.x() + 1; // There are more x-values than y-values.
     }
     // 斜率大于1
-    // 这种情况下，相当于把直线眼y=x对称即可，把y，x交换处理。参考wiki种的一般化方法。
+    // 这种情况下，相当于把直线沿y=x对称即可，把y，x交换处理。参考wiki种的一般化方法。
     else
     {
         // There is at least one y-value for every x-value

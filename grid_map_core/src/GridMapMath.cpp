@@ -62,22 +62,21 @@ inline bool getVectorToOrigin(Vector& vectorToOrigin, const Length& mapLength)
 inline bool getVectorToFirstCell(Vector& vectorToFirstCell,
                                  const Length& mapLength, const double& resolution)
 {
-  Vector vectorToOrigin;
-  // 1. 获取地图中心坐标(m)
-  // vectorToOrigin = (0.5 * mapLength).matrix()
-  getVectorToOrigin(vectorToOrigin, mapLength);
+    Vector vectorToOrigin;
+    // 1. 获取地图中心坐标(m)
+    // vectorToOrigin = (0.5 * mapLength).matrix()
+    getVectorToOrigin(vectorToOrigin, mapLength);
 
-  // 2. 计算到中心cell的vector
-  // Vector to center of cell.
-  // vectorToFirstCell = ((0.5 * mapLength) - (0.5 * resolution)).matrix
-  vectorToFirstCell = (vectorToOrigin.array() - 0.5 * resolution).matrix();
-  return true;
+    // 2. 计算到中心cell的vector
+    // Vector to center of cell.
+    // vectorToFirstCell = ((0.5 * mapLength) - (0.5 * resolution)).matrix
+    vectorToFirstCell = (vectorToOrigin.array() - 0.5 * resolution).matrix();
+    return true;
 }
 
 /**
  * @function    [getBufferOrderToMapFrameTransformation]
- * @description [返回一个负的单位阵
- *              为什么是负的？]
+ * @description [返回一个负的单位阵]
  * @return      [description]
  */
 inline Eigen::Matrix2i getBufferOrderToMapFrameTransformation()
@@ -113,6 +112,7 @@ inline Index getBufferIndexFromIndex(
     const Size& bufferSize,
     const Index& bufferStartIndex)
 {
+    //！如果起始索引点是(0,0)则直接返回
     if (checkIfStartIndexAtDefaultPosition(bufferStartIndex))
     return index;
 
@@ -173,7 +173,7 @@ inline BufferRegion::Quadrant getQuadrant(const Index& index, const Index& buffe
 using namespace internal;
 
 /**
- * @function    [getPositionFromIndex]
+ * @function    [从索引index获取cell的position]
  * @description [根据cell的index获取cell的位置(m)]
  * @param       position         [最后获取到cell的位置坐标(x,y)(m)]
  * @param       index            [要获取坐标cell的索引]
@@ -226,7 +226,8 @@ bool getIndexFromPosition(Index& index,
                           const Index& bufferStartIndex)
 {
     // 1. 判断position是否在map内
-     if (!checkIfPositionWithinMap(position, mapLength, mapPosition)) return false;
+    if (!checkIfPositionWithinMap(position, mapLength, mapPosition)) 
+        return false;
     Vector offset;
     // 2. 获取地图中心坐标
     // offset = (0.5 * mapLength).matrix()
@@ -272,21 +273,38 @@ void getPositionOfDataStructureOrigin(const Position& position,
   positionOfOrigin = position + vectorToOrigin;
 }
 
+/**
+ * [getIndexShiftFromPositionShift 由地图的位置偏移得到索引偏移]
+ * @param  indexShift    [索引偏移]
+ * @param  positionShift [位置偏移]
+ * @param  resolution    [分辨率]
+ * @return               [description]
+ */
 bool getIndexShiftFromPositionShift(Index& indexShift,
                                     const Vector& positionShift,
                                     const double& resolution)
 {
-  Vector indexShiftVectorTemp = (positionShift.array() / resolution).matrix();
-  Eigen::Vector2i indexShiftVector;
+    //! 四舍五入得到索引的变化量
+    Vector indexShiftVectorTemp = (positionShift.array() / resolution).matrix();
+    Eigen::Vector2i indexShiftVector;
 
-  for (int i = 0; i < indexShiftVector.size(); i++) {
-    indexShiftVector[i] = static_cast<int>(indexShiftVectorTemp[i] + 0.5 * (indexShiftVectorTemp[i] > 0 ? 1 : -1));
-  }
+    for (int i = 0; i < indexShiftVector.size(); i++) 
+    {
+        indexShiftVector[i] = static_cast<int>(indexShiftVectorTemp[i] + 0.5 * (indexShiftVectorTemp[i] > 0 ? 1 : -1));
+    }
 
-  indexShift = (getMapFrameToBufferOrderTransformation() * indexShiftVector).array();
-  return true;
+    //！因为索引坐标系和位置坐标系反向
+    indexShift = (getMapFrameToBufferOrderTransformation() * indexShiftVector).array();
+    return true;
 }
 
+/**
+ * [getPositionShiftFromIndexShift 获取Index偏移对应的Position偏移]
+ * @param  positionShift [description]
+ * @param  indexShift    [description]
+ * @param  resolution    [description]
+ * @return               [description]
+ */
 bool getPositionShiftFromIndexShift(Vector& positionShift,
                                     const Index& indexShift,
                                     const double& resolution)
@@ -582,10 +600,10 @@ bool incrementIndex(Index& index, const Size& bufferSize, const Index& bufferSta
  * @description [在子地图迭代的时候，递增索引值]
  * @param       submapIndex              [子地图索引值，初始值为0]
  * @param       index                    [父地图下，子地图的索引中心]
- * @param       submapTopLeftIndex       [和index类似]
+ * @param       submapTopLeftIndex       [子地图起始索引在父地图下的索引]
  * @param       submapBufferSize         [子地图的大小，一般指cell的个数]
  * @param       bufferSize               [实际地图大小]
- * @param       bufferStartIndex         [实际地图的其实索引值]
+ * @param       bufferStartIndex         [实际地图的起始索引值]
  * @return
  */
 bool incrementIndexForSubmap(Index& submapIndex, Index& index, const Index& submapTopLeftIndex,
@@ -609,17 +627,15 @@ bool incrementIndexForSubmap(Index& submapIndex, Index& index, const Index& subm
         tempSubmapIndex[0]++;
         tempSubmapIndex[1] = 0;
     }
-
     // 2. 判断增加后的索引值是否还满足要求（是否超过子地图范围）
     // End of iterations reached.
     if (!checkIfIndexWithinRange(tempSubmapIndex, submapBufferSize)) return false;
 
     // Get corresponding index in map.
-    // 3. 计算子地图索引中心距离父地图索引1中心的cell个数
+    // 3. 计算子地图索引中心距离父地图索引中心的cell个数
     Index unwrappedSubmapTopLeftIndex = getIndexFromBufferIndex(submapTopLeftIndex, bufferSize, bufferStartIndex);
-    // 4. 由3中计算出来的cell个数 + 1中计算出来的cell个数 = 当前迭代后位置句目的图索引中心的cell个数，然后在计算索引值即可
+    // 4. 由3中计算出来的cell个数 + 1中计算出来的cell个数 = 当前迭代后位置距父地图索引中心的cell个数，然后在计算索引值即可
     tempIndex = getBufferIndexFromIndex(unwrappedSubmapTopLeftIndex + tempSubmapIndex, bufferSize, bufferStartIndex);
-
     // Copy data back.
     index = tempIndex;
     submapIndex = tempSubmapIndex;
@@ -637,6 +653,7 @@ bool incrementIndexForSubmap(Index& submapIndex, Index& index, const Index& subm
 Index getIndexFromBufferIndex(const Index& bufferIndex, const Size& bufferSize,
                               const Index& bufferStartIndex)
 {
+    //! 判断起始索引点是否在索引坐标系的原点
     if (checkIfStartIndexAtDefaultPosition(bufferStartIndex))
     return bufferIndex;
     

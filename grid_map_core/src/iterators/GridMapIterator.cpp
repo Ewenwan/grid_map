@@ -12,9 +12,6 @@
 namespace grid_map {
 
 /**
- * @Author      Buyi
- * @DateTime    2017-04-04
- * @version     [version]
  * @function    [GridMapIterator]
  * @description [迭代器构造函数]
  */
@@ -22,7 +19,7 @@ GridMapIterator::GridMapIterator(const grid_map::GridMap& gridMap)
 {
   size_ = gridMap.getSize();
   startIndex_ = gridMap.getStartIndex();
-  // 返回每行的点乘是什么鬼
+  //！cell总数 
   linearSize_ = size_.prod();
   linearIndex_ = 0;
   isPastEnd_ = false;
@@ -68,9 +65,6 @@ const Index GridMapIterator::getUnwrappedIndex() const
 }
 
 /**
- * @Author      Buyi
- * @DateTime    2017-04-04
- * @version     [version]
  * @function    [GridMapIterator::operator]
  * @description [++的重载运算符，在迭代的时候使用]
  */
@@ -96,9 +90,6 @@ GridMapIterator GridMapIterator::end() const
 }
 
 /**
- * @Author      Buyi
- * @DateTime    2017-04-04
- * @version     [version]
  * @function    [isPastEnd]
  * @description [迭代器是否超过map范围]
  * @return      [未超过为假，超过为真]
