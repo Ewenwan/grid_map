@@ -24,95 +24,115 @@ bool GridMapOctomapConverter::fromOctomap(const octomap::OcTree& octomap,
                                           const grid_map::Position3* minPoint,
                                           const grid_map::Position3* maxPoint)
 {
-  if (octomap.getTreeType() != "OcTree") {
-    std::cerr << "Octomap conversion only implemented for standard OcTree type." << std::endl;
-    return false;
-  }
-
-  // Copy octomap in order to expand any pruned occupied cells and maintain constness of input.
-  octomap::OcTree octomapCopy(octomap);
-
-  // Iterate through leaf nodes and project occupied cells to elevation map.
-  // On the first pass, expand all occupied cells that are not at maximum depth.
-  unsigned int max_depth = octomapCopy.getTreeDepth();
-  // Adapted from octomap octree2pointcloud.cpp.
-  std::vector<octomap::OcTreeNode*> collapsed_occ_nodes;
-  do {
-    collapsed_occ_nodes.clear();
-    for (octomap::OcTree::iterator it = octomapCopy.begin(); it != octomapCopy.end(); ++it) {
-      if (octomapCopy.isNodeOccupied(*it) && it.getDepth() < max_depth) {
-        collapsed_occ_nodes.push_back(&(*it));
-      }
+    if (octomap.getTreeType() != "OcTree") 
+    {
+        std::cerr << "Octomap conversion only implemented for standard OcTree type." << std::endl;
+        return false;
     }
-    for (std::vector<octomap::OcTreeNode*>::iterator it = collapsed_occ_nodes.begin();
-                                            it != collapsed_occ_nodes.end(); ++it) {
-      #if OCTOMAP_VERSION_BEFORE_ROS_KINETIC
-        (*it)->expandNode();
-      #else
-        octomapCopy.expandNode(*it);
-      #endif
-    }
-    // std::cout << "Expanded " << collapsed_occ_nodes.size() << " nodes" << std::endl;
-  } while (collapsed_occ_nodes.size() > 0);
 
-  // Set up grid map geometry.
-  // TODO Figure out whether to center map.
-  double resolution = octomapCopy.getResolution();
-  grid_map::Position3 minBound;
-  grid_map::Position3 maxBound;
-  octomapCopy.getMetricMin(minBound(0), minBound(1), minBound(2));
-  octomapCopy.getMetricMax(maxBound(0), maxBound(1), maxBound(2));
+    //！这个地方是把Octomap中已占有的父节点展开到八叉树的最大深度，并且将其子节点的占有概率设为其父节点的占有概率
+    // Copy octomap in order to expand any pruned occupied cells and maintain constness of input.
+    octomap::OcTree octomapCopy(octomap);
 
-  // User can provide coordinate limits to only convert a bounding box.
-  octomap::point3d minBbx(minBound(0), minBound(1), minBound(2));
-  if (minPoint) {
-    minBbx = octomap::point3d((*minPoint)(0), (*minPoint)(1), (*minPoint)(2));
-    minBound = grid_map::Position3(minBbx.x(), minBbx.y(), minBbx.z());
-  }
-  octomap::point3d maxBbx(maxBound(0), maxBound(1), maxBound(2));
-  if (maxPoint) {
-    maxBbx = octomap::point3d((*maxPoint)(0), (*maxPoint)(1), (*maxPoint)(2));
-    maxBound = grid_map::Position3(maxBbx.x(), maxBbx.y(), maxBbx.z());
-  }
-
-  grid_map::Length length = grid_map::Length(maxBound(0) - minBound(0), maxBound(1) - minBound(1));
-  grid_map::Position position = grid_map::Position((maxBound(0) + minBound(0)) / 2.0,
-                                                   (maxBound(1) + minBound(1)) / 2.0);
-  gridMap.setGeometry(length, resolution, position);
-  // std::cout << "grid map geometry: " << std::endl;
-  // std::cout << "Length: [" << length(0) << ", " << length(1) << "]" << std::endl;
-  // std::cout << "Position: [" << position(0) << ", " << position(1) << "]" << std::endl;
-  // std::cout << "Resolution: " << resolution << std::endl;
-
-  // Add elevation layer
-  gridMap.add(layer);
-  gridMap.setBasicLayers({layer});
-
-  // For each voxel, if its elevation is higher than the existing value for the
-  // corresponding grid map cell, overwrite it.
-  // std::cout << "Iterating from " << min_bbx << " to " << max_bbx << std::endl;
-  grid_map::Matrix& gridMapData = gridMap[layer];
-  for(octomap::OcTree::leaf_bbx_iterator it = octomapCopy.begin_leafs_bbx(minBbx, maxBbx),
-          end = octomapCopy.end_leafs_bbx(); it != end; ++it) {
-    if (octomapCopy.isNodeOccupied(*it)) {
-      octomap::point3d octoPos = it.getCoordinate();
-      grid_map::Position position(octoPos.x(), octoPos.y());
-      grid_map::Index index;
-      gridMap.getIndex(position, index);
-      // If no elevation has been set, use current elevation.
-      if (!gridMap.isValid(index)) {
-        gridMapData(index(0), index(1)) = octoPos.z();
-      }
-      // Check existing elevation, keep higher.
-      else {
-        if (gridMapData(index(0), index(1)) < octoPos.z()) {
-          gridMapData(index(0), index(1)) = octoPos.z();
+    // Iterate through leaf nodes and project occupied cells to elevation map.
+    // On the first pass, expand all occupied cells that are not at maximum depth.
+    unsigned int max_depth = octomapCopy.getTreeDepth();
+    // Adapted from octomap octree2pointcloud.cpp.
+    //！
+    std::vector<octomap::OcTreeNode*> collapsed_occ_nodes;
+    do 
+    {
+        //！将Octomap的所有被占据的节点且小于八叉树深度的节点存入到collapsed_occ_nodes中
+        collapsed_occ_nodes.clear();
+        for (octomap::OcTree::iterator it = octomapCopy.begin(); it != octomapCopy.end(); ++it) 
+        {
+            if (octomapCopy.isNodeOccupied(*it) && it.getDepth() < max_depth) 
+            {
+                collapsed_occ_nodes.push_back(&(*it));
+            }
         }
-      }
-    }
-  }
+        //！创建该节点下的所有子节点，使子节点的占有概率与父节点相同，使所有的折叠的节点达到最大深度。
+        //！一般地，父节点的占据概率去子节点的的均值或者最大值。
+        for (std::vector<octomap::OcTreeNode*>::iterator it = collapsed_occ_nodes.begin();
+            it != collapsed_occ_nodes.end(); ++it) 
+        {
+            #if OCTOMAP_VERSION_BEFORE_ROS_KINETIC
+            (*it)->expandNode();
+            #else
+            octomapCopy.expandNode(*it);
+            #endif
+        }
+    // std::cout << "Expanded " << collapsed_occ_nodes.size() << " nodes" << std::endl;
+    } while (collapsed_occ_nodes.size() > 0);
 
-  return true;
-}
+    // Set up grid map geometry.
+    // TODO Figure out whether to center map.
+    //！提取有节点拓展后的地图的
+    double resolution = octomapCopy.getResolution();
+    grid_map::Position3 minBound;
+    grid_map::Position3 maxBound;
+    octomapCopy.getMetricMin(minBound(0), minBound(1), minBound(2));
+    octomapCopy.getMetricMax(maxBound(0), maxBound(1), maxBound(2));
+
+    // User can provide coordinate limits to only convert a bounding box.
+    octomap::point3d minBbx(minBound(0), minBound(1), minBound(2));
+    if (minPoint) 
+    {
+        minBbx = octomap::point3d((*minPoint)(0), (*minPoint)(1), (*minPoint)(2));
+        minBound = grid_map::Position3(minBbx.x(), minBbx.y(), minBbx.z());
+    }
+    octomap::point3d maxBbx(maxBound(0), maxBound(1), maxBound(2));
+    if (maxPoint) 
+    {
+        maxBbx = octomap::point3d((*maxPoint)(0), (*maxPoint)(1), (*maxPoint)(2));
+        maxBound = grid_map::Position3(maxBbx.x(), maxBbx.y(), maxBbx.z());
+    }
+
+    //! 设置Gridmap相关参数
+    grid_map::Length length = grid_map::Length(maxBound(0) - minBound(0), maxBound(1) - minBound(1));
+    grid_map::Position position = grid_map::Position((maxBound(0) + minBound(0)) / 2.0,
+               (maxBound(1) + minBound(1)) / 2.0);
+    gridMap.setGeometry(length, resolution, position);
+    // std::cout << "grid map geometry: " << std::endl;
+    // std::cout << "Length: [" << length(0) << ", " << length(1) << "]" << std::endl;
+    // std::cout << "Position: [" << position(0) << ", " << position(1) << "]" << std::endl;
+    // std::cout << "Resolution: " << resolution << std::endl;
+
+    // Add elevation layer
+    gridMap.add(layer);
+    gridMap.setBasicLayers({layer});
+
+    // For each voxel, if its elevation is higher than the existing value for the
+    // corresponding grid map cell, overwrite it.
+    // std::cout << "Iterating from " << min_bbx << " to " << max_bbx << std::endl;
+    //！cell单元存储对应其反投影的Octomap节点Z轴的最大值
+    grid_map::Matrix& gridMapData = gridMap[layer];
+    for(octomap::OcTree::leaf_bbx_iterator it = octomapCopy.begin_leafs_bbx(minBbx, maxBbx),
+    end = octomapCopy.end_leafs_bbx(); it != end; ++it) 
+    {
+        if (octomapCopy.isNodeOccupied(*it)) 
+        {
+            octomap::point3d octoPos = it.getCoordinate();
+            grid_map::Position position(octoPos.x(), octoPos.y());
+            grid_map::Index index;
+            gridMap.getIndex(position, index);
+            // If no elevation has been set, use current elevation.
+            if (!gridMap.isValid(index)) 
+            {
+                gridMapData(index(0), index(1)) = octoPos.z();
+            }
+            // Check existing elevation, keep higher.
+            else 
+            {
+                if (gridMapData(index(0), index(1)) < octoPos.z()) 
+                {
+                    gridMapData(index(0), index(1)) = octoPos.z();
+                }
+            }
+        }
+    }
+
+    return true;
+    }
 
 } /* namespace */

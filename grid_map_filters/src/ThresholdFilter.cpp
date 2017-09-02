@@ -74,25 +74,28 @@ bool ThresholdFilter<T>::configure()
 template<typename T>
 bool ThresholdFilter<T>::update(const T& mapIn, T& mapOut)
 {
-  mapOut = mapIn;
+    mapOut = mapIn;
 
-  // Check if layer exists.
-  if (!mapOut.exists(layer_)) {
-    ROS_ERROR("Check your threshold types! Type %s does not exist", layer_.c_str());
-    return false;
-  }
+    // Check if layer exists.
+    if (!mapOut.exists(layer_)) 
+    {
+        ROS_ERROR("Check your threshold types! Type %s does not exist", layer_.c_str());
+        return false;
+    }
 
-  // For each cell in map.
-  auto& data = mapOut[layer_];
-  for (grid_map::GridMapIterator iterator(mapOut); !iterator.isPastEnd(); ++iterator) {
-    if (!mapOut.isValid(*iterator, layer_)) continue;
-    const size_t i = iterator.getLinearIndex();
-    float& value = data(i);
-    if (useLowerThreshold_) if (value < lowerThreshold_) value = setTo_;
-    if (useUpperThreshold_) if (value > upperThreshold_) value = setTo_;
-  }
+    //！做上下限幅
+    // For each cell in map.
+    auto& data = mapOut[layer_];
+    for (grid_map::GridMapIterator iterator(mapOut); !iterator.isPastEnd(); ++iterator) 
+    {
+        if (!mapOut.isValid(*iterator, layer_)) continue;
+        const size_t i = iterator.getLinearIndex();
+        float& value = data(i);
+        if (useLowerThreshold_) if (value < lowerThreshold_) value = setTo_;
+        if (useUpperThreshold_) if (value > upperThreshold_) value = setTo_;
+    }
 
-  return true;
+    return true;
 }
 
 } /* namespace */
